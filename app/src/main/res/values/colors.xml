@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Text colours -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+
+    <!-- Borders / dividers -->
+    <color name="border_light">#E0E0E0</color>
+
+    <!-- Empty-state placeholder background (image / table containers) -->
+    <color name="empty_state_background">#F2F2F2</color>
+
+    <!-- CSV table colours -->
+    <color name="table_header_background">#FAFAFA</color>
+    <color name="table_row_background">#FFFFFF</color>
+
+    <!-- Hide Marks switch colours -->
+    <color name="switch_track_on">#FF9500</color>
+    <color name="switch_track_off">#E0E0E0</color>
+    <color name="switch_thumb">#FFFFFF</color>
+</resources>
