@@ -1,6 +1,8 @@
 package com.dynamsoft.bbsdatareceiver.ui
 
-import android.net.Uri
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,6 +10,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dynamsoft.bbsdatareceiver.model.BarcodeResult
@@ -17,7 +22,8 @@ enum class ResultFilter { ALL, DBR, BBS }
 @Composable
 fun ResultsScreen(
     results: List<BarcodeResult>,
-    annotatedImageUri: Uri?,
+    dbrAnnotatedBitmap: Bitmap?,
+    bbsAnnotatedBitmap: Bitmap?,
     onResume: () -> Unit,
     onDone: () -> Unit,
     onExportCsv: () -> Unit,
@@ -47,12 +53,60 @@ fun ResultsScreen(
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "${results.size} total · $dbrCount from DBR · $bbsCount from BBS",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // DBR vs BBS counts side by side (hide DBR card if no DBR results)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (dbrCount > 0) {
+                        Surface(
+                            modifier = Modifier.weight(1f),
+                            shape = MaterialTheme.shapes.small,
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "$dbrCount",
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    text = "DBR",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.tertiaryContainer
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "$bbsCount",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                            Text(
+                                text = "BBS",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -79,12 +133,23 @@ fun ResultsScreen(
 
         HorizontalDivider()
 
-        // Results list
+        // Scrollable content: comparison images + results list
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
         ) {
+            // Comparison images at top
+            if (dbrAnnotatedBitmap != null || bbsAnnotatedBitmap != null) {
+                item(key = "comparison_images") {
+                    ComparisonImageSection(
+                        dbrBitmap = dbrAnnotatedBitmap,
+                        bbsBitmap = bbsAnnotatedBitmap
+                    )
+                }
+            }
+
+            // Barcode result items
             items(filtered, key = { "${it.source}|${it.dedupKey}" }) { result ->
                 MergedResultItem(result)
                 HorizontalDivider()
@@ -118,6 +183,81 @@ fun ResultsScreen(
                     Text("Done")
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ComparisonImageSection(
+    dbrBitmap: Bitmap?,
+    bbsBitmap: Bitmap?,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(12.dp)
+    ) {
+        val hasComparison = dbrBitmap != null && bbsBitmap != null
+        Text(
+            text = if (hasComparison) "Image Comparison" else "Scan Image",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // DBR Image
+        if (dbrBitmap != null) {
+            AnnotatedImageCard(
+                label = "DBR — Dynamsoft Barcode Reader",
+                labelColor = MaterialTheme.colorScheme.primary,
+                bitmap = dbrBitmap
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // BBS Image
+        if (bbsBitmap != null) {
+            AnnotatedImageCard(
+                label = "BBS — Batch Barcode Scanner",
+                labelColor = MaterialTheme.colorScheme.tertiary,
+                bitmap = bbsBitmap
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        HorizontalDivider()
+    }
+}
+
+@Composable
+private fun AnnotatedImageCard(
+    label: String,
+    labelColor: Color,
+    bitmap: Bitmap,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = labelColor,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Surface(
+            shape = MaterialTheme.shapes.medium,
+            tonalElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = label,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.Black),
+                contentScale = ContentScale.FillWidth
+            )
         }
     }
 }

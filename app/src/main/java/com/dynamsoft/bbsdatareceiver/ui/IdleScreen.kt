@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun IdleScreen(
     onStartScanning: () -> Unit,
+    onLaunchBbs: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -21,7 +22,7 @@ fun IdleScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "DBR → BBS Escalation Demo",
+            text = "Barcode Scanner",
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center
         )
@@ -29,9 +30,7 @@ fun IdleScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Scan barcodes with Dynamsoft Barcode Reader.\n" +
-                    "If a dense scene is detected, you'll be prompted\n" +
-                    "to switch to Batch Barcode Scanner.",
+            text = "Choose a scanning mode to get started.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -45,7 +44,36 @@ fun IdleScreen(
                 .fillMaxWidth()
                 .height(56.dp)
         ) {
-            Text("Start Scanning", style = MaterialTheme.typography.titleMedium)
+            Text("Real-Time Scan (DBR)", style = MaterialTheme.typography.titleMedium)
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Best for fewer barcodes. Uses the camera live feed.",
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        OutlinedButton(
+            onClick = onLaunchBbs,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+        ) {
+            Text("Batch Scan (BBS)", style = MaterialTheme.typography.titleMedium)
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Best for dense scenes. 100% read rate and accuracy.",
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

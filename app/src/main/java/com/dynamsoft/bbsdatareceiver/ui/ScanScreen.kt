@@ -1,119 +1,172 @@
 package com.dynamsoft.bbsdatareceiver.ui
 
+import android.graphics.Bitmap
+import androidx.compose.animation.*
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.dynamsoft.bbsdatareceiver.model.BarcodeResult
 import com.dynamsoft.dce.CameraView
+import kotlin.math.roundToInt
 
 @Composable
 fun ScanScreen(
     cameraView: CameraView?,
-    results: List<BarcodeResult>,
-    currentFrameCount: Int,
+    liveAnnotatedBitmap: Bitmap? = null,
+    bbsButtonEnabled: Boolean = false,
+    onLaunchBbs: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
-        // Camera preview
-        Box(
+    // Full-screen camera with all UI as floating overlays
+    Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
+        // Camera view — true full screen
+        if (cameraView != null) {
+            AndroidView(
+                factory = { cameraView },
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Camera initializing...", color = Color.White)
+            }
+        }
+
+        // Top overlay: Launch BBS button (always visible) + warning banner (on trigger)
+        Column(
             modifier = Modifier
+                .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .weight(0.45f)
-                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            if (cameraView != null) {
-                AndroidView(
-                    factory = { cameraView },
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+            // Launch BBS button — always available
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = Color.Black.copy(alpha = 0.5f)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.Center
                 ) {
-                    Text("Camera initializing...")
+                    Button(
+                        onClick = onLaunchBbs,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text("Launch Batch Scanner")
+                    }
+                }
+            }
+
+            // Warning banner — only when escalation triggers
+            AnimatedVisibility(
+                visible = bbsButtonEnabled,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.95f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Too many barcodes — try Batch Scanner for better results",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
                 }
             }
         }
 
-        // Header: counts
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            tonalElevation = 2.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${results.size} unique codes",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "$currentFrameCount in current frame",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        // Draggable annotation preview overlay — starts at lower-left
+        if (liveAnnotatedBitmap != null) {
+            val previewMaxWidth = 160.dp
+            val aspect = liveAnnotatedBitmap.width.toFloat() / liveAnnotatedBitmap.height.coerceAtLeast(1)
+            val previewWidth = previewMaxWidth
+            val previewHeight = previewMaxWidth / aspect
+            val density = LocalDensity.current
+            var offsetX by remember { mutableFloatStateOf(with(density) { 12.dp.toPx() }) }
+            var offsetY by remember {
+                mutableFloatStateOf(with(density) { 400.dp.toPx() })
             }
-        }
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val maxX = with(density) { maxWidth.toPx() - previewWidth.toPx() }
+                val maxY = with(density) { maxHeight.toPx() - previewHeight.toPx() }
+                LaunchedEffect(maxY) {
+                    if (offsetY > maxY) offsetY = (maxY - with(density) { 12.dp.toPx() }).coerceAtLeast(0f)
+                }
 
-        HorizontalDivider()
-
-        // Results list
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(0.55f)
-        ) {
-            items(results, key = { it.dedupKey }) { result ->
-                BarcodeResultItem(result)
-                HorizontalDivider()
-            }
-        }
-    }
-}
-
-@Composable
-private fun BarcodeResultItem(result: BarcodeResult) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = result.text,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                maxLines = 2
-            )
-            Text(
-                text = result.format,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        if (result.count > 1) {
-            Badge(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            ) {
-                Text("×${result.count}")
+                Box(
+                    modifier = Modifier
+                        .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+                        .width(previewWidth + 4.dp)
+                        .height(previewHeight + 4.dp)
+                        .shadow(6.dp, RoundedCornerShape(6.dp))
+                        .clip(RoundedCornerShape(6.dp))
+                        .border(2.dp, Color.White.copy(alpha = 0.8f), RoundedCornerShape(6.dp))
+                        .background(Color.Black)
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                offsetX = (offsetX + dragAmount.x).coerceIn(0f, maxX)
+                                offsetY = (offsetY + dragAmount.y).coerceIn(0f, maxY)
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        bitmap = liveAnnotatedBitmap.asImageBitmap(),
+                        contentDescription = "Annotated barcode preview",
+                        modifier = Modifier.width(previewWidth).height(previewHeight),
+                        contentScale = ContentScale.Fit
+                    )
+                }
             }
         }
     }
 }
+

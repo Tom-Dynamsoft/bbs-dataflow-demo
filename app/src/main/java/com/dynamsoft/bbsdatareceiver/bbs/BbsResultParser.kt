@@ -6,8 +6,11 @@ import android.database.Cursor
 import android.net.Uri
 import android.provider.OpenableColumns
 import com.dynamsoft.bbsdatareceiver.model.BarcodeResult
+import android.util.Log
 import java.io.BufferedReader
 import java.io.InputStreamReader
+
+private const val TAG = "BbsResultParser"
 
 /**
  * Parses BBS result intents into BarcodeResult lists.
@@ -30,8 +33,13 @@ object BbsResultParser {
     private val IMAGE_EXTENSIONS = listOf(".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".heic", ".heif")
 
     fun parse(context: Context, intent: Intent?): ParsedResult? {
-        if (intent == null) return null
+        if (intent == null) {
+            Log.w(TAG, "parse: intent is null")
+            return null
+        }
+        Log.d(TAG, "parse: action=${intent.action}, data=${intent.data}, clipData items=${intent.clipData?.itemCount ?: 0}")
         val uris = extractUris(intent)
+        Log.d(TAG, "parse: extracted ${uris.size} URIs: $uris")
         if (uris.isEmpty()) return null
         return classifyAndParse(context, uris)
     }
@@ -67,14 +75,17 @@ object BbsResultParser {
 
         for (uri in uris) {
             val name = resolveFileName(context, uri) ?: uri.toString()
+            Log.d(TAG, "classifyAndParse: uri=$uri, resolvedName=$name")
             when {
-                isAnnotatedImage(name) -> annotatedUri = uri
-                isOriginalImage(name) -> originalUri = uri
-                isCsvFile(name) -> csvUri = uri
+                isAnnotatedImage(name) -> { annotatedUri = uri; Log.d(TAG, "  → annotated image") }
+                isOriginalImage(name) -> { originalUri = uri; Log.d(TAG, "  → original image") }
+                isCsvFile(name) -> { csvUri = uri; Log.d(TAG, "  → CSV file") }
+                else -> Log.d(TAG, "  → unclassified")
             }
         }
 
         val barcodes = if (csvUri != null) parseCsvToBarcodes(context, csvUri) else emptyList()
+        Log.d(TAG, "classifyAndParse: parsed ${barcodes.size} barcodes from CSV")
         return ParsedResult(barcodes, annotatedUri, originalUri, csvUri)
     }
 

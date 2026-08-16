@@ -51,6 +51,7 @@ dependencies {
     implementation libs.activity.compose
     implementation libs.lifecycle.viewmodel.compose
     implementation libs.lifecycle.runtime.compose
+    implementation libs.exifinterface
     implementation libs.activity.ktx
     implementation libs.appcompat
     implementation libs.material
